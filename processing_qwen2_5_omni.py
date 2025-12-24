@@ -223,10 +223,6 @@ class Qwen2_5OmniProcessor(ProcessorMixin):
             seconds_per_chunk=seconds_per_chunk,
         )
        
-        #### carl add
-        #print("uuuuuuuuuuuuuuuuuuuuuuu")
-        #print(text) 
-
         if self.stream:
             ret_text=[]
             for tmptext in text:
@@ -234,20 +230,16 @@ class Qwen2_5OmniProcessor(ProcessorMixin):
                     remove_text="<|im_start|>assistant\n"
                     system_and_user_prompt = tmptext[:-len(remove_text)]
                 else:
-                    before, mid, after,image_str=self.split_audio_tags(tmptext)
+                    before, mid, after=self.split_audio_tags(tmptext)
                     remove_text="<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n"
                     before = before[len(remove_text):]
 
                 new_str = []
 
-                if self.first_slice and not self.end_slice:  
-                    if image_str !="":
-                        new_str.append(before+mid+"<|audio_eos|>"+image_str)
-                    else:
-                        new_str.append(before+mid+"<|audio_eos|>")
-                        
+                if self.first_slice and not self.end_slice: 
+                    new_str.append(before+mid+"<|audio_eos|>")
+
                 elif self.end_slice and not self.first_slice:
-                    #fix bug for user text and add image prompt
                     if before == "no audio":
                         new_str.append( after)
                     else:    
@@ -257,11 +249,9 @@ class Qwen2_5OmniProcessor(ProcessorMixin):
                 elif self.pre_text_prompt:
                     new_str.append(system_and_user_prompt)
 
-                else:  
-                    if image_str !="":
-                        new_str.append("<|audio_bos|>" +mid+ "<|audio_eos|>"+image_str)
-                    else:
-                        new_str.append("<|audio_bos|>" +mid+ "<|audio_eos|>")
+                else:
+                    new_str.append("<|audio_bos|>" +mid+ "<|audio_eos|>")
+
                 ret_text.append(new_str[0])
                        
             text = ret_text
@@ -273,8 +263,6 @@ class Qwen2_5OmniProcessor(ProcessorMixin):
                 ret_text.append(tmptext)
             text = ret_text    
        
-        #print("ooooooooooooooooooooooooooooooo")
-        #print(text)
         texts_inputs = self.tokenizer(text, **output_kwargs["text_kwargs"])
     
         return BatchFeature(
@@ -284,36 +272,20 @@ class Qwen2_5OmniProcessor(ProcessorMixin):
 
     #### carl add
     def split_audio_tags(self,text):
-        #print("........................................")
-        #print(text)
-        #print("........................................")
         first_pos = text.find('<|AUDIO|>')
-        first_pos_image = text.find('<|vision_bos|>')
         first_pos_user = text.find('user')
         no_audio = text[first_pos_user+len("user\n"):]
         if first_pos == -1:
-            #return text, '', '', ''
-            #return text, '', ''
-            return 'no audio', '', no_audio, ''
+            return 'no audio', '', no_audio
 
         last_pos = text.rfind('<|AUDIO|>')
         last_end = last_pos + len('<|AUDIO|>')
 
-        last_pos_image = text.rfind('<|vision_eos|>')
-        last_end_image = last_pos_image + len('<|vision_bos|>')
-
-        if first_pos_image > 1: 
-            #print("0000000000000000000000000000000000000000000000000000000")
-            image_str = text[first_pos_image:last_end_image]
-        else:
-            image_str = ''
-       
         part1 = text[:first_pos]
         part2 = text[first_pos:last_end]
         part3 = text[last_end:]
 
-
-        return part1, part2, part3, image_str
+        return part1, part2, part3
 
 
 
